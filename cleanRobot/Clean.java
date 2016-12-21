@@ -15,7 +15,6 @@ public class Clean {
 		try {
 			robot.join();
 		} catch (InterruptedException e) {
-			// TODO 自動生成された catch ブロック
 			e.printStackTrace();
 		}
 	}
