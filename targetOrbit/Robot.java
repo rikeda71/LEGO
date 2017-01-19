@@ -1,116 +1,69 @@
 package targetOrbit;
 
-import jp.ac.kagawa_u.infoexpr.Sensor.ColorSensor;
-import jp.ac.kagawa_u.infoexpr.Sensor.UltrasonicSensor;
 import lejos.hardware.Button;
 import lejos.hardware.Sound;
-import lejos.hardware.motor.Motor;
-import lejos.hardware.port.SensorPort;
-import lejos.robotics.RegulatedMotor;
-import lejos.utility.Stopwatch;
 
 public class Robot implements Runnable{
 
-	// タイヤ
-	static RegulatedMotor rightMotor = Motor.B;
-	static RegulatedMotor leftMotor = Motor.C;
+	// モーター(タイヤ)
+	MotorControllor motor = new MotorControllor();
 
-	// 光センサー
-	static public ColorSensor rightLight = new ColorSensor(SensorPort.S2);
-	static public ColorSensor leftLight = new ColorSensor(SensorPort.S3);
+	// 速度
+	private static int lowspeed = 270;
+	private static int highspeed = 500;
 
-	// 反響センサー
-	static public UltrasonicSensor sonic = new UltrasonicSensor(SensorPort.S4);
-
-	static int lowspeed = 250;
-	static int highspeed = 400;
-
-	static int count = 0; //
-
-	private static Stopwatch stopwatch = new Stopwatch();
-	private static int time;
-
-	private void SetSpeed(int left, int right){
-		leftMotor.setSpeed(left);
-		rightMotor.setSpeed(right);
-	}
-
-	private void drive(){
-		leftMotor.forward();
-		rightMotor.forward();
-	}
-
-	private void Stop(){
-		leftMotor.stop(true);
-		rightMotor.stop();
-	}
-
-	public Robot() {
-		// TODO 自動生成されたコンストラクター・スタブ
-		Thread linesearch = new Thread(new LineSearch());
-		Thread sonicsearch = new Thread(new SonicSearch());
-		linesearch.start();
-		sonicsearch.start();
-	}
+	private static final int rotate90 = 90;
 
 	@Override
 	public void run() {
-		// 障害物を発見
-		while( ! Button.ESCAPE.isDown() && SonicSearch.GetDistance() > 0.2) {
-			switch(LineSearch.GetState()){
-			case 0:
-				SetSpeed(highspeed,highspeed);
-				break;
-			case 1:
-				SetSpeed(lowspeed,highspeed);
-				break;
-			case 2:
-				SetSpeed(highspeed,lowspeed);
-				break;
-			case 3:
-				SetSpeed(highspeed,highspeed);
-				break;
-			}
-			drive();
+		// 障害物を発見するまで
+		while( ! Button.ESCAPE.isDown() && ! SonicSearch.ObjectDetction()) {
+			LineTrace();
 		}
 
-		// 回転に誤差をつける
-		SetSpeed(lowspeed,highspeed);
-		drive();
+		motor.SetSpeed(lowspeed, highspeed);
+		motor.Drive();
 
 		// 障害物を一回りする
 		Sound.beep();
-		SetSpeed(lowspeed,highspeed);
+		motor.SetSpeed(lowspeed,highspeed);
 		while(! Button.ESCAPE.isDown() && LineSearch.GetState() >= 2){
-			drive();
+			motor.Drive();
 		}
 
 		// コースに戻る
-		SetSpeed(lowspeed,highspeed);
+		motor.SetSpeed(lowspeed,highspeed);
 		while(! Button.ESCAPE.isDown() && LineSearch.GetState() != 3 ){
-			drive();
+			motor.Drive();
 		}
 
 		// ライントレース
 		while( ! Button.ESCAPE.isDown()) {
-			switch(LineSearch.GetState()){
-			case 0:
-				SetSpeed(highspeed,highspeed);
-				break;
-			case 1:
-				SetSpeed(lowspeed,highspeed);
-				break;
-			case 2:
-				SetSpeed(highspeed,lowspeed);
-				break;
-			case 3:
-				SetSpeed(highspeed,highspeed);
-				break;
-			}
-			drive();
+			LineTrace();
 		}
 	}
 
+	private void LineTrace(){
+		switch(LineSearch.GetState()){
+		// 黒
+		case 0:
+			motor.SetSpeed(highspeed,highspeed);
+			break;
+		// 左：黒 右；白
+		case 1:
+			motor.SetSpeed(lowspeed,highspeed);
+			break;
+		// 左：白 右：黒
+		case 2:
+			motor.SetSpeed(highspeed,lowspeed);
+			break;
+		// 白
+		case 3:
+			motor.SetSpeed(highspeed,highspeed);
+			break;
+		}
+		motor.Drive();
+	}
 }
 
 

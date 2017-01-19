@@ -9,9 +9,14 @@ public class Garage {
 
 	public static void main(String[] args) {
 		Thread robot = new Thread(new Robot());
+		Thread sound = new Thread(new Sound());
+		Thread gradation = new Thread(new HSVLineSearch());
 		// ボタンが押されるまで待機
 		while (! touch.isPressed()){}
+
 		robot.start();
+		sound.start();
+		gradation.start();
 		try {
 			robot.join();
 		} catch (InterruptedException e) {

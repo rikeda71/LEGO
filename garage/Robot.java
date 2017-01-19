@@ -1,173 +1,75 @@
 package garage;
 
-import jp.ac.kagawa_u.infoexpr.Sensor.ColorSensor;
 import lejos.hardware.Button;
 import lejos.hardware.lcd.LCD;
-import lejos.hardware.motor.Motor;
-import lejos.hardware.port.SensorPort;
-import lejos.robotics.RegulatedMotor;
 import lejos.utility.Delay;
 
 public class Robot implements Runnable{
 
-	public static RegulatedMotor rightMotor  = Motor.B;
-	public static RegulatedMotor leftMotor  = Motor.C;
-	public static ColorSensor rightLight = new ColorSensor(SensorPort.S2);
-	public static ColorSensor leftLight = new ColorSensor(SensorPort.S3);
-	private static final int speed = 200;
-	private static final int lowspeed = 100;
-	private static final int mesureValue = 7; // キャリブレーションの回数
-	Calibration rightCalibration;
-	Calibration leftCalibration;
+	// キャリブレーション用
+	public static Calibration rightCalibration;
+	public static Calibration leftCalibration;
+
+	// 局所宣言
 	private static boolean parkingFlag = false;
-	float array[];
-	int rightColor,leftColor;
+	protected static int leftColor, rightColor;
 	int rotate90 = 90;
+	public static final int speed = 200;
+	public static final int lowspeed = 100;
+	protected static final int mesureValue = 6; // キャリブレーションの回数
+
+	MotorControllor motor = new MotorControllor();
 
 	public Robot() {
-		rightCalibration = new Calibration(mesureValue, rightLight);
-		leftCalibration = new Calibration(mesureValue, leftLight);
-		// キャリブレーションで色を記憶
+		rightCalibration = new Calibration(mesureValue, HSVLineSearch.rightLight);
+		leftCalibration = new Calibration(mesureValue, HSVLineSearch.leftLight);
+
 		/**
-		 * 白
-		 * 黒
-		 * グレー4色(黒→白になるように)
+		 * キャリブレーションで色を記憶
+		 * 0	: 白
+		 * 1	: 黒
+		 * 2～	: グレー4色(黒→白になるように)
+		 * ---キャリブレーションしない---
 		 * 青
-		 */
-		/*
-		LCD.drawString("==Right Calibration==", 0, 0);
-		rightCalibration.executeCalibration();
-		LCD.clear();
-		LCD.drawString("==Leftt Calibration==", 0, 0);
-		leftCalibration.executeCalibration();
+		 * 赤
 		 */
 		DoubleExecuteCalibration(rightCalibration, leftCalibration);
-		SetSpeed(speed, speed);
+		motor.SetSpeed(speed, speed);
 	}
 
 	@Override
 	public void run() {
-		while( ! Button.ENTER.isDown() ){
-			leftColor = colorDecision(leftLight.getHSV(), leftCalibration);
-			rightColor = colorDecision(rightLight.getHSV(), rightCalibration);
-			LCD.drawString("left" + leftColor, 0, 0);
-			LCD.drawString("right" + rightColor, 0, 1);
-			//LCD.drawString("Pless Escape!", 0, 2);
-			//while( ! Button.ESCAPE.isDown()){}
+		// 赤を判別するまでライントレース
+		while( ! Button.ESCAPE.isDown() ) {
+			HSVLineTrace(rightColor, leftColor);
+			if(leftColor == 7) break;
+		}
 
-			LCD.clear();
-			leftMotor.forward();
-			rightMotor.forward();
+		// グラデーションの認識
+		motor.SetSpeed(speed, speed);
+		while( ! Button.ENTER.isDown() ){
+			motor.Drive();
 			// ライトグレーに入った
 			if(leftColor == 5 && rightColor == 5){ parkingFlag = true; }
-
 			// 駐車開始
-			if(parkingFlag && leftColor != 5 && rightColor != 5){
-				break;
-			}
+			else if(parkingFlag && leftColor != 5 && rightColor != 5) break;
 		}
 
-		LCD.drawString("parking start!", 0, 0);
+		// 駐車して元の位置に戻る
 		ParkingAndBack();
-
-
-	}
-
-	/**
-	 * 与えられた角度だけ回転
-	 * @param rad
-	 */
-	private void RightRotate(int rad){
-		// 停止
-		leftMotor.stop(true);
-		rightMotor.stop();
-
-		// 回転角リセット
-		leftMotor.resetTachoCount();
-
-		// 一回転
-		while(leftMotor.getTachoCount() < rad * 2){
-			leftMotor.forward();
-			rightMotor.backward();
+		while( ! Button.ENTER.isDown()){
+			motor.Drive();
+			// 黒&黒(グラデーションを抜けようとしたら)
+			if(leftColor == 1 && rightColor == 1) break;
 		}
-		// 停止
-		leftMotor.stop(true);
-		rightMotor.stop();
-	}
 
-	/**
-	 * 与えられた角度だけ回転
-	 * @param rad
-	 */
-	private void LeftRotate(int rad){
-		// 停止
-		leftMotor.stop(true);
-		rightMotor.stop();
-
-		// 回転角リセット
-		rightMotor.resetTachoCount();
-
-		// 一回転
-		while(rightMotor.getTachoCount() < rad * 2){
-			leftMotor.backward();
-			rightMotor.forward();
+		// ライントレース
+		while( ! Button.ESCAPE.isDown() ) {
+			HSVLineTrace(rightColor, leftColor);
 		}
-		// 停止
-		leftMotor.stop(true);
-		rightMotor.stop();
+
 	}
 
-	/**
-	 * 走行
-	 * @param speed
-	 */
-	private void Forward(){
-		rightMotor.forward();
-		leftMotor.forward();
-	}
-
-	/**
-	 * スピードの設定
-	 * @param right
-	 * @param left
-	 */
-	private void SetSpeed(int right, int left){
-		rightMotor.setSpeed(right);
-		leftMotor.setSpeed(left);
-	}
-
-	/**
-	 * キャリブレーションの値を元に色の判断
-	 * @param float[] 読み取ったHSV
-	 * @param Calibration キャリブレーション済みのクラス
-	 * @return String 色
-	 **/
-	private static int colorDecision(float[] sensorValue, Calibration calibration) {
-		// 一番誤差の小さいところを返すための変数
-		float minerror = 300; // 最小の合計誤差
-		float nowerror; // 今の色の合計誤差
-		int minNum = -1; // 今の色の候補の番号
-		float whiteDecision = 0.3F; //白判定
-		int blueDecision = 150; //青判定
-		float calibrationData[];
-
-		if(sensorValue[0] > blueDecision) { return 6;} // 色相が高いなら青!
-		if(sensorValue[2] > whiteDecision) { return 0;} // 明度が高いなら白!
-
-		// 青と白を除いて判定
-		for(int i = 1;i < mesureValue-1;i++){
-			nowerror = 0; // 初期化
-			calibrationData = calibration.getCalibData(i); // キャリブレーションした値を格納
-			for(int j=1;j<3;j++){
-				nowerror += Math.abs( sensorValue[j] - calibrationData[j] );
-			}
-			if(minerror > nowerror) {
-				minerror = nowerror;
-				minNum = i;
-			}
-		}
-		return minNum;
-	}
 
 	/**
 	 * 2つ一緒にキャリブレーション
@@ -188,18 +90,9 @@ public class Robot implements Runnable{
 			Delay.msDelay(1000);
 		}
 		LCD.clear();
-		//LCD.drawString("Complete!!!!", 0, 0);
+		LCD.drawString("Complete!!!!", 0, 0);
 		Delay.msDelay(1000);
 		return 0;
-	}
-
-	/**
-	 * 走行のずれ修正
-	 * @param left
-	 * @param right
-	 */
-	private void CorrectGap(int left, int right){
-
 	}
 
 	/**
@@ -207,25 +100,47 @@ public class Robot implements Runnable{
 	 */
 	private void ParkingAndBack(){
 		int tacho; //タコメータ確保
-		LeftRotate(rotate90);
-		leftColor = colorDecision(leftLight.getHSV(), leftCalibration);
-		rightColor = colorDecision(rightLight.getHSV(), rightCalibration);
+		motor.LeftRotate(rotate90);
 		// バックのためにタコメータリセット
-		leftMotor.resetTachoCount();
+		MotorControllor.leftMotor.resetTachoCount();
 		// 青線まで
 		while( !(leftColor == 6 && rightColor == 6) ){
-			leftColor = colorDecision(leftLight.getHSV(), leftCalibration);
-			rightColor = colorDecision(rightLight.getHSV(), rightCalibration);
-			leftMotor.forward();
-			rightMotor.forward();
+			motor.Drive();
 		}
-		tacho = -leftMotor.getTachoCount();
-		leftMotor.resetTachoCount();
-		while( leftMotor.getTachoCount() > tacho && ! Button.ENTER.isDown()){
-			leftMotor.backward();
-			rightMotor.backward();
+		tacho = -1 * MotorControllor.leftMotor.getTachoCount();
+		MotorControllor.leftMotor.resetTachoCount();
+		while( MotorControllor.leftMotor.getTachoCount() > tacho && ! Button.ENTER.isDown()){
+			motor.Back();
 		}
-		RightRotate(rotate90);
+		motor.RightRotate(rotate90);
+		MotorControllor.leftMotor.resetTachoCount();
+		while( MotorControllor.leftMotor.getTachoCount() > -1 * rotate90){
+			motor.Back();
+		}
 	}
 
+	/**
+	 * HSVを用いたライントレース
+	 * @param right
+	 * @param left
+	 */
+	void HSVLineTrace(int right, int left){
+		// 黒
+		if(right != 0 && left != 0){
+			motor.SetSpeed(speed, speed);
+		}
+		// 右：白　左：黒
+		else if(right == 0 && left != 0){
+			motor.SetSpeed(lowspeed, speed);
+		}
+		// 右：黒　左：白
+		else if(right != 0 && left == 0){
+			motor.SetSpeed(speed, lowspeed);
+		}
+		// 白
+		else if(right == 0 && left == 0){
+			motor.SetSpeed(speed, speed);
+		}
+		motor.Drive();
+	}
 }
