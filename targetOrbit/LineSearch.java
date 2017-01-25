@@ -15,7 +15,7 @@ public class LineSearch implements Runnable{
 
 	private void LineState()
 	{
-		// 黒 && 黒
+		// 黒＆黒
 		if( leftLight.getLight() < middleValue && rightLight.getLight() < middleValue){
 			state = 0;
 		}

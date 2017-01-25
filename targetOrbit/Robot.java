@@ -12,8 +12,6 @@ public class Robot implements Runnable{
 	private static int lowspeed = 270;
 	private static int highspeed = 500;
 
-	private static final int rotate90 = 90;
-
 	@Override
 	public void run() {
 		// 障害物を発見するまで
