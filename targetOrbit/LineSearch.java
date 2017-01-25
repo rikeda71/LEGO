@@ -43,13 +43,4 @@ public class LineSearch implements Runnable{
 			LineState();
 		}
 	}
-
-	public static void sleep(int ms){
-		try {
-			Thread.sleep(ms);
-		} catch (InterruptedException e) {
-			// TODO 自動生成された catch ブロック
-			e.printStackTrace();
-		}
-	}
 }
