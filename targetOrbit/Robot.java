@@ -9,7 +9,7 @@ public class Robot implements Runnable{
 	MotorControllor motor = new MotorControllor();
 
 	// 速度
-	private static int lowspeed = 270;
+	private static int lowspeed = 350;
 	private static int highspeed = 500;
 
 	@Override
@@ -19,7 +19,7 @@ public class Robot implements Runnable{
 			LineTrace();
 		}
 
-		motor.SetSpeed(lowspeed, highspeed);
+		motor.SetSpeed(highspeed, lowspeed);
 		motor.Drive();
 
 		// 障害物を一回りする

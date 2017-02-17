@@ -18,7 +18,7 @@ public class SonicSearch implements Runnable {
 
 	// 物体検知
 	public static boolean ObjectDetction(){
-		if(distance > 0.05 && distance < 0.21) { return true; }
+		if(distance > 0.05 && distance < 0.2) { return true; }
 		else { return false; }
 	}
 
