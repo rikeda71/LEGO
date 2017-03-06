@@ -3,26 +3,25 @@
 情報環境実験
 LEGOプログラミングのソースコード
 
-* cleanRobot
 
 領域掃出
-
-*　figureRun
+* cleanRobot
 
 図形模走
+* figureRun
 
-*　garage
 
 車庫入出
+* garage
 
-*　lineTrace
 
 黒線追跡
+* lineTrace
 
-*　periphery
 
 外周走破
+* periphery
 
-*　targetOrbit
 
 目標周回
+* targetOrbit
